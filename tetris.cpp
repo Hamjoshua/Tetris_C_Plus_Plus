@@ -16,7 +16,20 @@ static char MAP_FLOOR = '=';
 enum OPERATIONS {TO_RIGHT, TO_LEFT, FLIP};
 enum BOUNDS { RIGHT_BOUND, LEFT_BOUND, TOP_BOUND, BOTTOM_BOUND };
 
-vector<vector<char>> structure { {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> LineBlockStructure { {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> LBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING},
+                              {BLOCK_MOVING, MAP_VOID, MAP_VOID} };
+vector<vector<char>> JBlockStructure{ {BLOCK_MOVING, MAP_VOID, MAP_VOID},
+                              {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> TBlockStructure{ {MAP_VOID, BLOCK_MOVING, MAP_VOID},
+                              {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> ZBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING, MAP_VOID},
+                              {MAP_VOID, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> SBlockStructure{ {MAP_VOID, BLOCK_MOVING, BLOCK_MOVING},
+                              {BLOCK_MOVING, BLOCK_MOVING, MAP_VOID} };
+vector<vector<char>> OBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING},
+                              {BLOCK_MOVING, BLOCK_MOVING} };
+
 
 class Block {
 public:
@@ -29,23 +42,21 @@ public:
         return structure[0].size();
     }
 
-    int getHeight() {
+    int getHeigth() {
         return structure.size();
     }
 
     int getBound(int bound) {
-        switch (bound) {
-            RIGHT_BOUND:
-                return originX + getWidth() - 1;
-                break;
-            LEFT_BOUND:
-                return originX;
-            TOP_BOUND:
-                return originY;
-                break;
-            BOTTOM_BOUND:
-                return originY + getHeight() - 1;
-                break;
+        if (bound == RIGHT_BOUND) {
+            int value = originX + getWidth() - 1;
+            return value;
+        } else if (bound == LEFT_BOUND) {
+            return originX;
+        } else if (bound == TOP_BOUND) {
+            return originY;
+        } else if (bound == BOTTOM_BOUND) {
+            int value = originY + getHeigth() - 1;
+            return value;
         }
     }
 
@@ -73,12 +84,23 @@ class Map {
     int heigth;
 
 public:
+    int getWidth() {
+        return width;
+    }
+
+    int getHeight() {
+        return heigth;
+    }
+
     vector<vector<char>> field;
 
     Map() {
     }
 
     void init(int width, int heigth){
+        this->width = width;
+        this->heigth = heigth;
+
         field.resize(heigth);
 
         for (int row = 0; row < heigth; ++row) {
@@ -101,17 +123,18 @@ public:
             cout << MAP_WALL;
             for (int column = 0; column < width; ++column) {
                 char letter;
+                char blockLetter = MAP_VOID;
 
                 if ((row >= startY && row <= endY) && (column >= startX && column <= endX)) {
-                    char blockLetter = block.structure[row - block.originY][column - block.originY];
-                    if (blockLetter == BLOCK_MOVING) {
-                        letter = BLOCK_MOVING;
-                        continue;
-                    }
-                }                
-                letter = field[row][column];
-                
+                    blockLetter = block.structure[row - block.originY][column - block.originX];
+                }
+                if (blockLetter == MAP_VOID) {
+                    letter = field[row][column];
+                } else {
+                    letter = blockLetter;
+                }
                 cout << letter << " ";
+
             }
             cout << MAP_WALL << "\n";
         }
@@ -134,7 +157,7 @@ public:
         }
 
         int endX = block.getWidth();
-        int endY = block.getHeight();
+        int endY = block.getHeigth();
 
         for (int row = 0; row < endY; ++row) {
             for (int column = 0; column < endX; ++column) {
@@ -155,7 +178,7 @@ public:
 
     void placeBlock(Block block) {
         int endX = block.getWidth();
-        int endY = block.getHeight();
+        int endY = block.getHeigth();
 
         for (int row = 0; row < endY; ++row) {
             for (int column = 0; column < endX; ++column) {
@@ -173,6 +196,41 @@ public:
     bool isBoundsToMove(Block block, int operation) {
         char letterBlock;
         char cell;
+
+        // todo если флип будет центрироваться, то чтобы еще по горизонтали была проверка
+        if (operation == FLIP) {
+            int newY = block.getBound(RIGHT_BOUND);
+            int newX = block.getBound(BOTTOM_BOUND);
+
+            if (newY >= heigth || newX >= width) {
+                return true;
+            } else {
+                // todo проверить соприкасание с другими блоками
+                return false;
+            }
+        }
+
+        if (operation == TO_RIGHT) {
+            int newX = block.getBound(RIGHT_BOUND) + 1;
+            if (newX >= width) {
+                return true;
+            }
+
+            letterBlock = block.structure[block.getHeigth() - 1][block.getWidth() - 1];
+            cell = field[block.getBound(BOTTOM_BOUND)][newX];
+        }
+
+        if (operation == TO_LEFT) {
+            int newX = block.getBound(LEFT_BOUND) - 1;
+            if (newX < 0) {
+                return true;
+            }
+
+            letterBlock = block.structure[block.getHeigth() - 1][0];
+            cell = field[block.getBound(BOTTOM_BOUND)][newX];
+        }
+
+        return letterBlock == BLOCK_MOVING && cell == BLOCK_STILL;
     }
 
     void checkAllLayers(Block block, int* gmScore) {
@@ -219,6 +277,8 @@ public:
                 return true;
             }
         }
+
+        return false;
     }
 
 };
@@ -230,8 +290,45 @@ public:
     Map gameMap;
     Block currentBlock;
 
-    void chooseBlock() {
+    int getRandomTypeOfBlock() {
+        random_device rd;
+        mt19937 generator(rd());
+        uniform_int_distribution<> distribution(0, 6);
 
+        return distribution(generator);
+    }
+
+    void chooseBlock() {
+        currentBlock = Block();
+
+        int typeOfBlock = getRandomTypeOfBlock();
+        switch (typeOfBlock)
+        {
+        case 0:
+            currentBlock.structure = LineBlockStructure;
+            break;
+        case 1:
+            currentBlock.structure = OBlockStructure;
+            break;
+        case 2:
+            currentBlock.structure = LBlockStructure;
+            break;
+        case 3:
+            currentBlock.structure = JBlockStructure;
+            break;
+        case 4:
+            currentBlock.structure = ZBlockStructure;
+            break;
+        case 5:
+            currentBlock.structure = TBlockStructure;
+            break;
+        case 6:
+            currentBlock.structure = SBlockStructure;
+            break;
+        }
+
+        currentBlock.originY = 0;
+        currentBlock.originX = (gameMap.getWidth() / 2) - (currentBlock.getWidth() / 2);
     }
 
     GameManager(int width, int height) {
@@ -244,7 +341,8 @@ public:
     }
 
     bool isLose() {
-        return gameMap.anyStillBlockOnTop();
+        bool anyBlock = gameMap.anyStillBlockOnTop();
+        return anyBlock;
     }
 
     int getScore() {
@@ -315,6 +413,7 @@ void tick(float sec) {
 
 int main()
 {   
+    setlocale(LC_ALL, "Russian");
     int width = 10;
     int heigth = 15;
     GameManager gm = GameManager(width, heigth);
@@ -325,7 +424,7 @@ int main()
         if (!gm.isLose()) {
             gm.gameCycle(operation);
         }
-        system("clear");
+        system("cls");
         gm.drawMap();
         drawUi(gm);
         tick(0.5);
