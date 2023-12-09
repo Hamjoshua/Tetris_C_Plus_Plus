@@ -73,7 +73,22 @@ public:
     }
 
     void flip() {
+        vector<vector<char>> newStructure;
+        newStructure.resize(getWidth());
 
+        for (int row = 0; row < getWidth(); ++row) {
+            vector<char> newColumns;
+            newColumns.resize(getHeigth());
+            newStructure[row] = newColumns;
+        }
+
+        for (int row = 0; row < getHeigth(); ++row) {
+            for (int column = 0; column < getWidth(); ++column) {
+                newStructure[column][row] = structure[row][column];
+            }
+        }
+
+        structure = newStructure;
     }
 
 };
@@ -239,7 +254,7 @@ public:
 
         int row = startY;
 
-        while (row < endY) {
+        while (row <= endY) {
             if (isLayerFull(row)) {
                 *gmScore += width;
                 removeLayer(row);
@@ -267,6 +282,8 @@ public:
                 return false;
             }
         }
+
+        return true;
     }
 
     bool anyStillBlockOnTop() {
@@ -326,7 +343,6 @@ public:
             currentBlock.structure = SBlockStructure;
             break;
         }
-
         currentBlock.originY = 0;
         currentBlock.originX = (gameMap.getWidth() / 2) - (currentBlock.getWidth() / 2);
     }
