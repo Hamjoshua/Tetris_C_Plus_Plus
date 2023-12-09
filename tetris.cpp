@@ -7,12 +7,14 @@
 #include <string>
 #include <iostream>
 
+
 static char BLOCK_MOVING = '#';
 static char BLOCK_STILL = '%';
 static char MAP_VOID = '-';
 static char MAP_WALL = '|';
 static char MAP_FLOOR = '=';
 
+enum COLORS { BLUE = 1, GREEN = 2, CYAN = 3, RED = 4, PURPLE = 5, YELLOW = 6, WHITE = 15 };
 enum OPERATIONS {TO_RIGHT, TO_LEFT, FLIP};
 enum BOUNDS { RIGHT_BOUND, LEFT_BOUND, TOP_BOUND, BOTTOM_BOUND };
 
@@ -30,11 +32,31 @@ vector<vector<char>> SBlockStructure{ {MAP_VOID, BLOCK_MOVING, BLOCK_MOVING},
 vector<vector<char>> OBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING},
                               {BLOCK_MOVING, BLOCK_MOVING} };
 
+struct coloredChar {
+    char letter;
+    int color;
+};
+
+void coutTextWithColor(string text, int color, bool withSpacebar=false) {
+    HANDLE console_color;
+    console_color = GetStdHandle(STD_OUTPUT_HANDLE);
+    
+    SetConsoleTextAttribute(console_color, color);
+
+    if (withSpacebar) {
+        cout << text << " ";
+    } else {
+        cout << text;
+    }
+
+    SetConsoleTextAttribute(console_color, WHITE);
+}
 
 class Block {
 public:
     int originY;
     int originX;
+    int color;
 
     vector<vector<char>> structure;
 
@@ -107,7 +129,7 @@ public:
         return heigth;
     }
 
-    vector<vector<char>> field;
+    vector<vector<coloredChar>> field;
 
     Map() {
     }
@@ -119,11 +141,11 @@ public:
         field.resize(heigth);
 
         for (int row = 0; row < heigth; ++row) {
-            vector<char> columns;
+            vector<coloredChar> columns;
             columns.resize(width);
             field[row] = columns;
             for (int column = 0; column < width; ++column) {
-                field[row][column] = MAP_VOID;
+                field[row][column] = coloredChar{ MAP_VOID, WHITE };
             }
         }
     }
@@ -137,7 +159,7 @@ public:
         for (int row = 0; row < heigth; ++row) {
             cout << MAP_WALL;
             for (int column = 0; column < width; ++column) {
-                char letter;
+                coloredChar letter;
                 char blockLetter = MAP_VOID;
 
                 if ((row >= startY && row <= endY) && (column >= startX && column <= endX)) {
@@ -146,9 +168,10 @@ public:
                 if (blockLetter == MAP_VOID) {
                     letter = field[row][column];
                 } else {
-                    letter = blockLetter;
+                    letter = coloredChar { blockLetter, block.color};
                 }
-                cout << letter << " ";
+                string text { letter.letter };
+                coutTextWithColor(text, letter.color, true);
 
             }
             cout << MAP_WALL << "\n";
@@ -181,7 +204,7 @@ public:
                     int newFieldRow = row + block.originY + 1;
                     int fieldColumn = column + block.originX;
 
-                    char cell = field[newFieldRow][fieldColumn];
+                    char cell = field[newFieldRow][fieldColumn].letter;
 
                     if (cell == BLOCK_STILL) {
                         return true;
@@ -202,7 +225,7 @@ public:
                     int fieldRow = row + block.originY;
                     int fieldColumn = column + block.originX;
                     
-                    field[fieldRow][fieldColumn] = BLOCK_STILL;
+                    field[fieldRow][fieldColumn] = coloredChar{ BLOCK_STILL, block.color };
                 }
             }
         }
@@ -232,7 +255,7 @@ public:
             }
 
             letterBlock = block.structure[block.getHeigth() - 1][block.getWidth() - 1];
-            cell = field[block.getBound(BOTTOM_BOUND)][newX];
+            cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
         }
 
         if (operation == TO_LEFT) {
@@ -242,7 +265,7 @@ public:
             }
 
             letterBlock = block.structure[block.getHeigth() - 1][0];
-            cell = field[block.getBound(BOTTOM_BOUND)][newX];
+            cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
         }
 
         return letterBlock == BLOCK_MOVING && cell == BLOCK_STILL;
@@ -276,7 +299,7 @@ public:
 
     bool isLayerFull(int row) {
         for (int column = 0; column < width; ++column) {
-            char cell = field[row][column];
+            char cell = field[row][column].letter;
 
             if (cell == MAP_VOID) {
                 return false;
@@ -288,7 +311,7 @@ public:
 
     bool anyStillBlockOnTop() {
         for (int column = 0; column < width; ++column) {
-            char cell = field[0][column];
+            char cell = field[0][column].letter;
 
             if (cell == BLOCK_STILL) {
                 return true;
@@ -307,18 +330,19 @@ public:
     Map gameMap;
     Block currentBlock;
 
-    int getRandomTypeOfBlock() {
+    int getRandomNumber(int start, int end) {
         random_device rd;
         mt19937 generator(rd());
-        uniform_int_distribution<> distribution(0, 6);
+        uniform_int_distribution<> distribution(start, end);
 
         return distribution(generator);
     }
 
     void chooseBlock() {
         currentBlock = Block();
+        currentBlock.color = getRandomNumber(1, 14);
 
-        int typeOfBlock = getRandomTypeOfBlock();
+        int typeOfBlock = getRandomNumber(0, 6);
         switch (typeOfBlock)
         {
         case 0:
@@ -416,10 +440,11 @@ int handleInput() {
 }
 
 void drawUi(GameManager gm) {
-    cout << "Очки:" << gm.getScore() << '\n';
+    string score = "Очки: " + to_string(gm.getScore()) + '\n';
+    coutTextWithColor(score, GREEN);
     
     if (gm.isLose()) {
-        cout << "ВЫ ПРОИГРАЛИ:" << '\n';
+        coutTextWithColor("ВЫ ПРОИГРАЛИ!\n", RED);
     }
 }
 
@@ -445,7 +470,5 @@ int main()
         drawUi(gm);
         tick(0.5);
     }
-
-    std::cout << "Hello World!\n";
 }
 
