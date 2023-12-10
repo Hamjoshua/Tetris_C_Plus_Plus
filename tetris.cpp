@@ -454,7 +454,8 @@ void tick(float sec) {
 
 int main()
 {   
-    setlocale(LC_ALL, "Russian");
+    system("chcp 1251");
+    setlocale(LC_ALL, "UTF-8");
     int width = 10;
     int heigth = 15;
     GameManager gm = GameManager(width, heigth);
