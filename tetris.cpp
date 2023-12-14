@@ -1,18 +1,35 @@
 ﻿using namespace std;
 
 #include <random>
+#include <iostream>
+#include <string>
+#include <vector>
 #include <conio.h>
 #include <Windows.h>
-#include <vector>
-#include <string>
-#include <iostream>
+
+#define setLocale setlocale
+#define consoleSleep Sleep
+#define toLower tolower
+#define toUpper toupper
 
 
 static char BLOCK_MOVING = '#';
-static char BLOCK_STILL = '%';
-static char MAP_VOID = '-';
+static char BLOCK_FIXED = '%';
+static char MAP_EMPTY_SPACE = '-';
 static char MAP_WALL = '|';
 static char MAP_FLOOR = '=';
+
+static char GAME_KEY_RIGHT = 'd';
+static char GAME_KEY_RIGHT_ALT = 'в';
+static char GAME_KEY_LEFT = 'a';
+static char GAME_KEY_LEFT_ALT = 'ф';
+static char GAME_KEY_FLIP = 'f';
+static char GAME_KEY_FLIP_ALT = 'f';
+static char GAME_KEY_FALL = 's';
+static char GAME_KEY_FALL_ALT = 'ы';
+
+float NORMAL_VELOCITY = 0.5;
+float FAST_VELOCITY = 0.1;
 
 enum COLORS { BLUE = 1, GREEN = 2, CYAN = 3, RED = 4, PURPLE = 5, YELLOW = 6, WHITE = 15 };
 enum OPERATIONS {TO_RIGHT, TO_LEFT, FLIP};
@@ -20,15 +37,15 @@ enum BOUNDS { RIGHT_BOUND, LEFT_BOUND, TOP_BOUND, BOTTOM_BOUND };
 
 vector<vector<char>> LineBlockStructure { {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
 vector<vector<char>> LBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING},
-                              {BLOCK_MOVING, MAP_VOID, MAP_VOID} };
-vector<vector<char>> JBlockStructure{ {BLOCK_MOVING, MAP_VOID, MAP_VOID},
+                              {BLOCK_MOVING, MAP_EMPTY_SPACE, MAP_EMPTY_SPACE} };
+vector<vector<char>> JBlockStructure{ {BLOCK_MOVING, MAP_EMPTY_SPACE, MAP_EMPTY_SPACE},
                               {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
-vector<vector<char>> TBlockStructure{ {MAP_VOID, BLOCK_MOVING, MAP_VOID},
+vector<vector<char>> TBlockStructure{ {MAP_EMPTY_SPACE, BLOCK_MOVING, MAP_EMPTY_SPACE},
                               {BLOCK_MOVING, BLOCK_MOVING, BLOCK_MOVING} };
-vector<vector<char>> ZBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING, MAP_VOID},
-                              {MAP_VOID, BLOCK_MOVING, BLOCK_MOVING} };
-vector<vector<char>> SBlockStructure{ {MAP_VOID, BLOCK_MOVING, BLOCK_MOVING},
-                              {BLOCK_MOVING, BLOCK_MOVING, MAP_VOID} };
+vector<vector<char>> ZBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING, MAP_EMPTY_SPACE},
+                              {MAP_EMPTY_SPACE, BLOCK_MOVING, BLOCK_MOVING} };
+vector<vector<char>> SBlockStructure{ {MAP_EMPTY_SPACE, BLOCK_MOVING, BLOCK_MOVING},
+                              {BLOCK_MOVING, BLOCK_MOVING, MAP_EMPTY_SPACE} };
 vector<vector<char>> OBlockStructure{ {BLOCK_MOVING, BLOCK_MOVING},
                               {BLOCK_MOVING, BLOCK_MOVING} };
 
@@ -94,6 +111,22 @@ public:
         }
     }
 
+    void shiftForFlip() {
+        int width = getWidth();
+        int heigth = getHeigth();
+        int shift;
+
+        if (width == heigth) {
+            return;
+        } else if (width < heigth) {
+            int shift = heigth / 2;
+            originX += shift;
+        } else {
+            int shift = width / 2;
+            originX -= shift;
+        }
+    }
+
     void flip() {
         vector<vector<char>> newStructure;
         newStructure.resize(getWidth());
@@ -111,12 +144,13 @@ public:
         }
 
         structure = newStructure;
+        shiftForFlip();
     }
 
 };
 
 
-class Map {
+class GameMap {
     int width;
     int heigth;
 
@@ -131,7 +165,7 @@ public:
 
     vector<vector<coloredChar>> field;
 
-    Map() {
+    GameMap() {
     }
 
     void init(int width, int heigth){
@@ -145,7 +179,7 @@ public:
             columns.resize(width);
             field[row] = columns;
             for (int column = 0; column < width; ++column) {
-                field[row][column] = coloredChar{ MAP_VOID, WHITE };
+                field[row][column] = coloredChar{ MAP_EMPTY_SPACE, WHITE };
             }
         }
     }
@@ -160,12 +194,12 @@ public:
             cout << MAP_WALL;
             for (int column = 0; column < width; ++column) {
                 coloredChar letter;
-                char blockLetter = MAP_VOID;
+                char blockLetter = MAP_EMPTY_SPACE;
 
                 if ((row >= startY && row <= endY) && (column >= startX && column <= endX)) {
                     blockLetter = block.structure[row - block.originY][column - block.originX];
                 }
-                if (blockLetter == MAP_VOID) {
+                if (blockLetter == MAP_EMPTY_SPACE) {
                     letter = field[row][column];
                 } else {
                     letter = coloredChar { blockLetter, block.color};
@@ -199,14 +233,14 @@ public:
 
         for (int row = 0; row < endY; ++row) {
             for (int column = 0; column < endX; ++column) {
-                char letterBlock = block.structure[row][column];
-                if (letterBlock == BLOCK_MOVING) {
+                char letterOfBlock = block.structure[row][column];
+                if (letterOfBlock == BLOCK_MOVING) {
                     int newFieldRow = row + block.originY + 1;
                     int fieldColumn = column + block.originX;
 
                     char cell = field[newFieldRow][fieldColumn].letter;
 
-                    if (cell == BLOCK_STILL) {
+                    if (cell == BLOCK_FIXED) {
                         return true;
                     }
                 }
@@ -220,58 +254,87 @@ public:
 
         for (int row = 0; row < endY; ++row) {
             for (int column = 0; column < endX; ++column) {
-                char letterBlock = block.structure[row][column];
-                if (letterBlock == BLOCK_MOVING) {
+                char letterOfBlock = block.structure[row][column];
+                if (letterOfBlock == BLOCK_MOVING) {
                     int fieldRow = row + block.originY;
                     int fieldColumn = column + block.originX;
                     
-                    field[fieldRow][fieldColumn] = coloredChar{ BLOCK_STILL, block.color };
+                    field[fieldRow][fieldColumn] = coloredChar{ BLOCK_FIXED, block.color };
                 }
             }
         }
     }
 
-    bool isBoundsToMove(Block block, int operation) {
-        char letterBlock;
-        char cell;
-
-        // todo если флип будет центрироваться, то чтобы еще по горизонтали была проверка
-        if (operation == FLIP) {
-            int newY = block.getBound(RIGHT_BOUND);
-            int newX = block.getBound(BOTTOM_BOUND);
-
-            if (newY >= heigth || newX >= width) {
-                return true;
-            } else {
-                // todo проверить соприкасание с другими блоками
-                return false;
-            }
-        }
-
-        if (operation == TO_RIGHT) {
-            int newX = block.getBound(RIGHT_BOUND) + 1;
-            if (newX >= width) {
-                return true;
-            }
-
-            letterBlock = block.structure[block.getHeigth() - 1][block.getWidth() - 1];
-            cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
-        }
-
-        if (operation == TO_LEFT) {
-            int newX = block.getBound(LEFT_BOUND) - 1;
-            if (newX < 0) {
-                return true;
-            }
-
-            letterBlock = block.structure[block.getHeigth() - 1][0];
-            cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
-        }
-
-        return letterBlock == BLOCK_MOVING && cell == BLOCK_STILL;
+    bool hasBoundInRight(Block block, int shift=1) {
+        int newX = block.getBound(RIGHT_BOUND) + shift;
+        return newX >= width;
     }
 
-    void checkAllLayers(Block block, int* gmScore) {
+    bool hasBoundInLeft(Block block, int shift=1) {
+        int newX = block.getBound(LEFT_BOUND) - shift;
+        return newX < 0;
+    }
+
+    bool hasCollisionInRightBottom(Block block, int shift=1) {
+        int newX = block.getBound(RIGHT_BOUND) + shift;
+
+        char letterOfBlock = block.structure[block.getHeigth() - 1][block.getWidth() - 1];
+        char cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
+
+        return letterOfBlock == BLOCK_MOVING && cell == BLOCK_FIXED;
+    }
+
+    bool hasCollisionInLeftBottom(Block block, int shift=1) {
+        int newX = block.getBound(LEFT_BOUND) - shift;
+
+        char letterOfBlock = block.structure[block.getHeigth() - 1][0];
+        char cell = field[block.getBound(BOTTOM_BOUND)][newX].letter;
+
+        return letterOfBlock == BLOCK_MOVING && cell == BLOCK_FIXED;
+    }
+
+    bool hasBoundOrCollisionForFlip(Block block) {
+        if (block.getWidth() == block.getHeigth()) {
+            return false;
+        }
+
+        block.flip();
+        int blockWidth = block.getWidth();
+        int blockHeight = block.getHeigth();
+        int newX = block.getBound(RIGHT_BOUND);
+        int newY = block.getBound(BOTTOM_BOUND);
+
+        // проверка на выход за границы
+        if (newY >= heigth || hasBoundInLeft(block, 0) || hasBoundInRight(block, 0) ) {
+            return true;
+        } else {
+            return hasCollisionInLeftBottom(block, 0) || hasCollisionInRightBottom(block, 0);
+        }
+    }
+
+    bool hasBoundOrCollisionForOperation(Block block, int operation) {
+        char letterOfBlock;
+        char cell;
+        int newX;
+
+        if (operation == FLIP) {
+            return hasBoundOrCollisionForFlip(block);
+        }
+        if (hasBoundInRight(block) || hasBoundInLeft(block)) {
+            return true;
+        } else {
+            if (operation == TO_RIGHT) {
+                return hasCollisionInRightBottom(block);
+            }
+
+            if (operation == TO_LEFT) {
+                return hasCollisionInLeftBottom(block);
+            }
+        }
+        
+    }
+
+    void checkAllLayers(Block block, int* gameManagerScore) {
         int startY = block.getBound(TOP_BOUND);
         int endY = block.getBound(BOTTOM_BOUND);
 
@@ -279,7 +342,7 @@ public:
 
         while (row <= endY) {
             if (isLayerFull(row)) {
-                *gmScore += width;
+                *gameManagerScore += width;
                 removeLayer(row);
             }
 
@@ -301,7 +364,7 @@ public:
         for (int column = 0; column < width; ++column) {
             char cell = field[row][column].letter;
 
-            if (cell == MAP_VOID) {
+            if (cell == MAP_EMPTY_SPACE) {
                 return false;
             }
         }
@@ -313,7 +376,7 @@ public:
         for (int column = 0; column < width; ++column) {
             char cell = field[0][column].letter;
 
-            if (cell == BLOCK_STILL) {
+            if (cell == BLOCK_FIXED) {
                 return true;
             }
         }
@@ -327,8 +390,8 @@ public:
 class GameManager {
     int score = 0;
 public:
-    Map gameMap;
-    Block currentBlock;
+    GameMap gameMap;
+    Block fallingBlock;
 
     int getRandomNumber(int start, int end) {
         random_device rd;
@@ -339,36 +402,35 @@ public:
     }
 
     void chooseBlock() {
-        currentBlock = Block();
-        currentBlock.color = getRandomNumber(1, 14);
+        fallingBlock = Block();
+        fallingBlock.color = getRandomNumber(1, 14);
 
         int typeOfBlock = getRandomNumber(0, 6);
-        switch (typeOfBlock)
-        {
-        case 0:
-            currentBlock.structure = LineBlockStructure;
-            break;
-        case 1:
-            currentBlock.structure = OBlockStructure;
-            break;
-        case 2:
-            currentBlock.structure = LBlockStructure;
-            break;
-        case 3:
-            currentBlock.structure = JBlockStructure;
-            break;
-        case 4:
-            currentBlock.structure = ZBlockStructure;
-            break;
-        case 5:
-            currentBlock.structure = TBlockStructure;
-            break;
-        case 6:
-            currentBlock.structure = SBlockStructure;
-            break;
+        switch (typeOfBlock) {
+            case 0:
+                fallingBlock.structure = LineBlockStructure;
+                break;
+            case 1:
+                fallingBlock.structure = OBlockStructure;
+                break;
+            case 2:
+                fallingBlock.structure = LBlockStructure;
+                break;
+            case 3:
+                fallingBlock.structure = JBlockStructure;
+                break;
+            case 4:
+                fallingBlock.structure = ZBlockStructure;
+                break;
+            case 5:
+                fallingBlock.structure = TBlockStructure;
+                break;
+            case 6:
+                fallingBlock.structure = SBlockStructure;
+                break;
         }
-        currentBlock.originY = 0;
-        currentBlock.originX = (gameMap.getWidth() / 2) - (currentBlock.getWidth() / 2);
+        fallingBlock.originY = 0;
+        fallingBlock.originX = (gameMap.getWidth() / 2) - (fallingBlock.getWidth() / 2);
     }
 
     GameManager(int width, int height) {
@@ -376,11 +438,11 @@ public:
         chooseBlock();
     }
 
-    void drawMap() {
-        gameMap.draw(currentBlock);
+    void drawGameMap() {
+        gameMap.draw(fallingBlock);
     }
 
-    bool isLose() {
+    bool isOver() {
         bool anyBlock = gameMap.anyStillBlockOnTop();
         return anyBlock;
     }
@@ -390,86 +452,104 @@ public:
     }
 
     void gameCycle(int operation) {
-        if (gameMap.isCollideWithFloor(currentBlock)) {
-            gameMap.placeBlock(currentBlock);
-            gameMap.checkAllLayers(currentBlock, &score);
+        if (gameMap.isCollideWithFloor(fallingBlock)) {
+            gameMap.placeBlock(fallingBlock);
+            gameMap.checkAllLayers(fallingBlock, &score);
             chooseBlock();
-        }
-        else {
-            currentBlock.fall();
+        } else {
+            fallingBlock.fall();
 
-            switch (operation)
-            {
-            case TO_RIGHT:
-                if (!gameMap.isBoundsToMove(currentBlock, operation)) {
-                    currentBlock.moveToRight(true);
-                }
-                break;
-            case TO_LEFT:
-                if (!gameMap.isBoundsToMove(currentBlock, operation)) {
-                    currentBlock.moveToRight(false);
-                }
-                break;
-            case FLIP:
-                if (!gameMap.isBoundsToMove(currentBlock, operation)) {
-                    currentBlock.flip();
-                }
-                break;
-
+            switch (operation) {
+                case TO_RIGHT:
+                    if (!gameMap.hasBoundOrCollisionForOperation(fallingBlock, operation)) {
+                        fallingBlock.moveToRight(true);
+                    }
+                    break;
+                case TO_LEFT:
+                    if (!gameMap.hasBoundOrCollisionForOperation(fallingBlock, operation)) {
+                        fallingBlock.moveToRight(false);
+                    }
+                    break;
+                case FLIP:
+                    if (!gameMap.hasBoundOrCollisionForOperation(fallingBlock, operation)) {
+                        fallingBlock.flip();
+                    }
+                    break;
             }
         }
     }
 };
 
 
-int handleInput() {
+int handleInput(float* tickSpeed) {
     char letter = ';';
     
     if (_kbhit()) {
         letter = _getch();
-        letter = tolower(letter);
+        letter = toLower(letter);
     }
 
-    if (letter == 'd' || letter == 'в') {
+    if (letter == GAME_KEY_RIGHT || letter == GAME_KEY_RIGHT_ALT) {
         return TO_RIGHT;
-    } else if (letter == 'a' || letter == 'ф') {
+    } else if (letter == GAME_KEY_LEFT || letter == GAME_KEY_LEFT_ALT) {
         return TO_LEFT;
-    } else if (letter == 'f' || letter == 'а') {
+    } else if (letter == GAME_KEY_FLIP || letter == GAME_KEY_FLIP_ALT) {
         return FLIP;
+    }
+
+    if (letter == GAME_KEY_FALL || letter == GAME_KEY_FALL_ALT) {
+        *tickSpeed = FAST_VELOCITY;
+    } else {
+        *tickSpeed = NORMAL_VELOCITY;
     }
 }
 
-void drawUi(GameManager gm) {
-    string score = "Очки: " + to_string(gm.getScore()) + '\n';
+string characterToUpperString(char character) {
+    character = toUpper(character);
+    return string { character };
+};
+
+
+void drawKeys() {
+    string rightHint = "Вправо: " + characterToUpperString(GAME_KEY_RIGHT) + '\n';
+    string leftHint = "Влево: " + characterToUpperString(GAME_KEY_LEFT) + '\n';
+    string fallHint = "Ускоренное падение: " + characterToUpperString(GAME_KEY_FALL) + '\n';
+    string flipHint = "Поворот (180 градусов): " + characterToUpperString(GAME_KEY_FLIP) + '\n';
+    string allHints = rightHint + leftHint + fallHint + flipHint;
+    coutTextWithColor(allHints, YELLOW);
+}
+
+void drawUi(GameManager gameManager) {
+    string score = "Очки: " + to_string(gameManager.getScore()) + '\n';
     coutTextWithColor(score, GREEN);
     
-    if (gm.isLose()) {
+    if (gameManager.isOver()) {
         coutTextWithColor("ВЫ ПРОИГРАЛИ!\n", RED);
+    } else {
+        drawKeys();
     }
 }
 
 void tick(float sec) {
-    Sleep(sec * 1000);
+    consoleSleep(sec * 1000);
 }
 
 int main()
 {   
     system("chcp 1251");
-    setlocale(LC_ALL, "UTF-8");
+    setLocale(LC_ALL, "UTF-8");
     int width = 10;
     int heigth = 15;
-    GameManager gm = GameManager(width, heigth);
+    float tickSpeed = NORMAL_VELOCITY;
+    GameManager gameManager = GameManager(width, heigth);
 
-    while (true) {
-        int operation = handleInput();
-
-        if (!gm.isLose()) {
-            gm.gameCycle(operation);
-        }
+    while (!gameManager.isOver()) {
+        int operation = handleInput(&tickSpeed);
+        gameManager.gameCycle(operation);        
         system("cls");
-        gm.drawMap();
-        drawUi(gm);
-        tick(0.5);
+        gameManager.drawGameMap();
+        drawUi(gameManager);
+        tick(tickSpeed);
     }
 }
 
