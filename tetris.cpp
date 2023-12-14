@@ -131,15 +131,15 @@ public:
         vector<vector<char>> newStructure;
         newStructure.resize(getWidth());
 
-        for (int row = 0; row < getWidth(); ++row) {
+        for (int rowIndex = 0; rowIndex < getWidth(); ++rowIndex) {
             vector<char> newColumns;
             newColumns.resize(getHeigth());
-            newStructure[row] = newColumns;
+            newStructure[rowIndex] = newColumns;
         }
 
-        for (int row = 0; row < getHeigth(); ++row) {
-            for (int column = 0; column < getWidth(); ++column) {
-                newStructure[column][row] = structure[row][column];
+        for (int rowIndex = 0; rowIndex < getHeigth(); ++rowIndex) {
+            for (int columnIndex = 0; columnIndex < getWidth(); ++columnIndex) {
+                newStructure[columnIndex][rowIndex] = structure[rowIndex][columnIndex];
             }
         }
 
@@ -174,12 +174,12 @@ public:
 
         field.resize(heigth);
 
-        for (int row = 0; row < heigth; ++row) {
-            vector<coloredChar> columns;
-            columns.resize(width);
-            field[row] = columns;
-            for (int column = 0; column < width; ++column) {
-                field[row][column] = coloredChar{ MAP_EMPTY_SPACE, WHITE };
+        for (int rowIndex = 0; rowIndex < heigth; ++rowIndex) {
+            vector<coloredChar> columnIndexs;
+            columnIndexs.resize(width);
+            field[rowIndex] = columnIndexs;
+            for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
+                field[rowIndex][columnIndex] = coloredChar{ MAP_EMPTY_SPACE, WHITE };
             }
         }
     }
@@ -190,17 +190,17 @@ public:
         int startY = block.getBound(TOP_BOUND);
         int endY = block.getBound(BOTTOM_BOUND);
 
-        for (int row = 0; row < heigth; ++row) {
+        for (int rowIndex = 0; rowIndex < heigth; ++rowIndex) {
             cout << MAP_WALL;
-            for (int column = 0; column < width; ++column) {
+            for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
                 coloredChar letter;
                 char blockLetter = MAP_EMPTY_SPACE;
 
-                if ((row >= startY && row <= endY) && (column >= startX && column <= endX)) {
-                    blockLetter = block.structure[row - block.originY][column - block.originX];
+                if ((rowIndex >= startY && rowIndex <= endY) && (columnIndex >= startX && columnIndex <= endX)) {
+                    blockLetter = block.structure[rowIndex - block.originY][columnIndex - block.originX];
                 }
                 if (blockLetter == MAP_EMPTY_SPACE) {
-                    letter = field[row][column];
+                    letter = field[rowIndex][columnIndex];
                 } else {
                     letter = coloredChar { blockLetter, block.color};
                 }
@@ -215,7 +215,7 @@ public:
 
     void drawFloor() {
         cout << MAP_WALL;
-        for (int column = 0; column < width; ++column) {
+        for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
             cout << MAP_FLOOR << " ";
         }
         cout << MAP_WALL << "\n";
@@ -231,12 +231,12 @@ public:
         int endX = block.getWidth();
         int endY = block.getHeigth();
 
-        for (int row = 0; row < endY; ++row) {
-            for (int column = 0; column < endX; ++column) {
-                char letterOfBlock = block.structure[row][column];
+        for (int rowIndex = 0; rowIndex < endY; ++rowIndex) {
+            for (int columnIndex = 0; columnIndex < endX; ++columnIndex) {
+                char letterOfBlock = block.structure[rowIndex][columnIndex];
                 if (letterOfBlock == BLOCK_MOVING) {
-                    int newFieldRow = row + block.originY + 1;
-                    int fieldColumn = column + block.originX;
+                    int newFieldRow = rowIndex + block.originY + 1;
+                    int fieldColumn = columnIndex + block.originX;
 
                     char cell = field[newFieldRow][fieldColumn].letter;
 
@@ -252,12 +252,12 @@ public:
         int endX = block.getWidth();
         int endY = block.getHeigth();
 
-        for (int row = 0; row < endY; ++row) {
-            for (int column = 0; column < endX; ++column) {
-                char letterOfBlock = block.structure[row][column];
+        for (int rowIndex = 0; rowIndex < endY; ++rowIndex) {
+            for (int columnIndex = 0; columnIndex < endX; ++columnIndex) {
+                char letterOfBlock = block.structure[rowIndex][columnIndex];
                 if (letterOfBlock == BLOCK_MOVING) {
-                    int fieldRow = row + block.originY;
-                    int fieldColumn = column + block.originX;
+                    int fieldRow = rowIndex + block.originY;
+                    int fieldColumn = columnIndex + block.originX;
                     
                     field[fieldRow][fieldColumn] = coloredChar{ BLOCK_FIXED, block.color };
                 }
@@ -338,31 +338,31 @@ public:
         int startY = block.getBound(TOP_BOUND);
         int endY = block.getBound(BOTTOM_BOUND);
 
-        int row = startY;
+        int rowIndex = startY;
 
-        while (row <= endY) {
-            if (isLayerFull(row)) {
+        while (rowIndex <= endY) {
+            if (isLayerFull(rowIndex)) {
                 *gameManagerScore += width;
-                removeLayer(row);
+                removeLayer(rowIndex);
             }
 
-            row += 1;
+            rowIndex += 1;
         }
     }
 
-    void removeLayer(int row) {
-        while (row > 0) {
-            for (int column = 0; column < width; ++column) {
-                field[row][column] = field[row - 1][column];
+    void removeLayer(int rowIndex) {
+        while (rowIndex > 0) {
+            for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
+                field[rowIndex][columnIndex] = field[rowIndex - 1][columnIndex];
             }
 
-            row -= 1;
+            rowIndex -= 1;
         }
     }
 
-    bool isLayerFull(int row) {
-        for (int column = 0; column < width; ++column) {
-            char cell = field[row][column].letter;
+    bool isLayerFull(int rowIndex) {
+        for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
+            char cell = field[rowIndex][columnIndex].letter;
 
             if (cell == MAP_EMPTY_SPACE) {
                 return false;
@@ -373,8 +373,8 @@ public:
     }
 
     bool anyStillBlockOnTop() {
-        for (int column = 0; column < width; ++column) {
-            char cell = field[0][column].letter;
+        for (int columnIndex = 0; columnIndex < width; ++columnIndex) {
+            char cell = field[0][columnIndex].letter;
 
             if (cell == BLOCK_FIXED) {
                 return true;
