@@ -23,8 +23,8 @@ static char GAME_KEY_RIGHT = 'd';
 static char GAME_KEY_RIGHT_ALT = 'в';
 static char GAME_KEY_LEFT = 'a';
 static char GAME_KEY_LEFT_ALT = 'ф';
-static char GAME_KEY_FLIP = 'f';
-static char GAME_KEY_FLIP_ALT = 'f';
+static char GAME_KEY_FLIP = 'w';
+static char GAME_KEY_FLIP_ALT = 'ц';
 static char GAME_KEY_FALL = 's';
 static char GAME_KEY_FALL_ALT = 'ы';
 
@@ -139,7 +139,9 @@ public:
 
         for (int rowIndex = 0; rowIndex < getHeigth(); ++rowIndex) {
             for (int columnIndex = 0; columnIndex < getWidth(); ++columnIndex) {
-                newStructure[columnIndex][rowIndex] = structure[rowIndex][columnIndex];
+                int invertedRowIndex = abs(rowIndex - (getHeigth() - 1) );
+
+                newStructure[columnIndex][invertedRowIndex] = structure[rowIndex][columnIndex];
             }
         }
 
@@ -514,7 +516,7 @@ void drawKeys() {
     string rightHint = "Вправо: " + characterToUpperString(GAME_KEY_RIGHT) + '\n';
     string leftHint = "Влево: " + characterToUpperString(GAME_KEY_LEFT) + '\n';
     string fallHint = "Ускоренное падение: " + characterToUpperString(GAME_KEY_FALL) + '\n';
-    string flipHint = "Поворот (180 градусов): " + characterToUpperString(GAME_KEY_FLIP) + '\n';
+    string flipHint = "Поворот: " + characterToUpperString(GAME_KEY_FLIP) + '\n';
     string allHints = rightHint + leftHint + fallHint + flipHint;
     coutTextWithColor(allHints, YELLOW);
 }
